@@ -12,14 +12,14 @@
     <bpmn:endEvent id="Event_1cqq72i">
       <bpmn:incoming>Flow_1plh7kj</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_00an9vu" sourceRef="StartEvent_1" targetRef="Event_EnviaMensagem" />
+    <bpmn:sequenceFlow id="Flow_00an9vu" sourceRef="StartEvent_1" targetRef="Activity_0v8bvy6" />
     <bpmn:sequenceFlow id="Flow_1plh7kj" sourceRef="Activity_1l9yihi" targetRef="Event_1cqq72i" />
     <bpmn:scriptTask id="Activity_1l9yihi" scriptFormat="Javascript">
       <bpmn:incoming>Flow_075y69d</bpmn:incoming>
       <bpmn:outgoing>Flow_1plh7kj</bpmn:outgoing>
       <bpmn:script>print("fim subprocesso")</bpmn:script>
     </bpmn:scriptTask>
-    <bpmn:intermediateCatchEvent id="Event_Signal" name="Callback">
+    <bpmn:intermediateCatchEvent id="Event_Signal" name="mensagem">
       <bpmn:extensionElements />
       <bpmn:incoming>Flow_1la6isk</bpmn:incoming>
       <bpmn:outgoing>Flow_1lo6uzj</bpmn:outgoing>
@@ -34,8 +34,8 @@
     </bpmn:sequenceFlow>
     <bpmn:sequenceFlow id="Flow_1urcnen" sourceRef="Event_EnviaMensagem" targetRef="Gateway_Retorno" />
     <bpmn:intermediateThrowEvent id="Event_EnviaMensagem">
-      <bpmn:incoming>Flow_00an9vu</bpmn:incoming>
       <bpmn:incoming>Flow_1ebfckq</bpmn:incoming>
+      <bpmn:incoming>Flow_1o5fthq</bpmn:incoming>
       <bpmn:outgoing>Flow_1urcnen</bpmn:outgoing>
       <bpmn:messageEventDefinition id="MessageEventDefinition_1uoem3k" camunda:type="external" camunda:topic="enviaMensagem" />
     </bpmn:intermediateThrowEvent>
@@ -57,15 +57,20 @@
       <bpmn:incoming>Flow_043c0al</bpmn:incoming>
     </bpmn:endEvent>
     <bpmn:sequenceFlow id="Flow_043c0al" sourceRef="Event_1nqxy6z" targetRef="Event_1acxdkv" />
-    <bpmn:exclusiveGateway id="Gateway_1wy8pnh" default="Flow_075y69d">
+    <bpmn:exclusiveGateway id="Gateway_1wy8pnh" default="Flow_1thf06h">
       <bpmn:incoming>Flow_1lo6uzj</bpmn:incoming>
       <bpmn:outgoing>Flow_075y69d</bpmn:outgoing>
       <bpmn:outgoing>Flow_1thf06h</bpmn:outgoing>
     </bpmn:exclusiveGateway>
-    <bpmn:sequenceFlow id="Flow_075y69d" sourceRef="Gateway_1wy8pnh" targetRef="Activity_1l9yihi" />
-    <bpmn:sequenceFlow id="Flow_1thf06h" sourceRef="Gateway_1wy8pnh" targetRef="Event_TimerRetentativa">
-      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${contador &lt; 2}</bpmn:conditionExpression>
+    <bpmn:sequenceFlow id="Flow_075y69d" sourceRef="Gateway_1wy8pnh" targetRef="Activity_1l9yihi">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" language="groovy">def contagem= execution.getVariable("contagem")
+if(contagem) {
+    return contagem.values().any{ it &gt; 3}
+} else {
+    return false;
+}</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_1thf06h" sourceRef="Gateway_1wy8pnh" targetRef="Event_TimerRetentativa" />
     <bpmn:intermediateCatchEvent id="Event_TimerRetentativa">
       <bpmn:incoming>Flow_1thf06h</bpmn:incoming>
       <bpmn:outgoing>Flow_10ewvcu</bpmn:outgoing>
@@ -75,61 +80,73 @@
     </bpmn:intermediateCatchEvent>
     <bpmn:sequenceFlow id="Flow_10ewvcu" sourceRef="Event_TimerRetentativa" targetRef="Activity_0p03psm" />
     <bpmn:sequenceFlow id="Flow_1ebfckq" sourceRef="Activity_0p03psm" targetRef="Event_EnviaMensagem" />
-    <bpmn:scriptTask id="Activity_0p03psm" scriptFormat="Javascript">
+    <bpmn:scriptTask id="Activity_0p03psm" scriptFormat="groovy">
       <bpmn:incoming>Flow_10ewvcu</bpmn:incoming>
       <bpmn:outgoing>Flow_1ebfckq</bpmn:outgoing>
-      <bpmn:script>execution.setVariable("contador",execution.getVariable("contador") + 1);
-print("contador: " + execution.getVariable("contador"))</bpmn:script>
+      <bpmn:script>def contagem= execution.getVariable("contagem")
+def codigoRetorno = execution.getVariable("codigo_retorno")
+
+contagem[codigoRetorno] = (contagem[codigoRetorno] ?: 0) + 1</bpmn:script>
+    </bpmn:scriptTask>
+    <bpmn:sequenceFlow id="Flow_1o5fthq" sourceRef="Activity_0v8bvy6" targetRef="Event_EnviaMensagem" />
+    <bpmn:scriptTask id="Activity_0v8bvy6" scriptFormat="groovy">
+      <bpmn:incoming>Flow_00an9vu</bpmn:incoming>
+      <bpmn:outgoing>Flow_1o5fthq</bpmn:outgoing>
+      <bpmn:script>execution.setVariable("contagem", [:])</bpmn:script>
     </bpmn:scriptTask>
   </bpmn:process>
   <bpmn:signal id="Signal_2dsrnqd" name="Signal_1gl15ls" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="subprocesso">
+      <bpmndi:BPMNEdge id="Flow_1o5fthq_di" bpmnElement="Flow_1o5fthq">
+        <di:waypoint x="330" y="397" />
+        <di:waypoint x="402" y="397" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1ebfckq_di" bpmnElement="Flow_1ebfckq">
+        <di:waypoint x="780" y="120" />
+        <di:waypoint x="420" y="120" />
+        <di:waypoint x="420" y="379" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10ewvcu_di" bpmnElement="Flow_10ewvcu">
+        <di:waypoint x="830" y="232" />
+        <di:waypoint x="830" y="160" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1thf06h_di" bpmnElement="Flow_1thf06h">
+        <di:waypoint x="830" y="372" />
+        <di:waypoint x="830" y="268" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_075y69d_di" bpmnElement="Flow_075y69d">
+        <di:waypoint x="855" y="397" />
+        <di:waypoint x="940" y="397" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_043c0al_di" bpmnElement="Flow_043c0al">
+        <di:waypoint x="618" y="250" />
+        <di:waypoint x="682" y="250" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_08llh4q_di" bpmnElement="Flow_08llh4q">
+        <di:waypoint x="530" y="372" />
+        <di:waypoint x="530" y="250" />
+        <di:waypoint x="582" y="250" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1la6isk_di" bpmnElement="Flow_1la6isk">
+        <di:waypoint x="555" y="397" />
+        <di:waypoint x="662" y="397" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1urcnen_di" bpmnElement="Flow_1urcnen">
+        <di:waypoint x="438" y="397" />
+        <di:waypoint x="505" y="397" />
+      </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1lo6uzj_di" bpmnElement="Flow_1lo6uzj">
-        <di:waypoint x="538" y="397" />
-        <di:waypoint x="645" y="397" />
+        <di:waypoint x="698" y="397" />
+        <di:waypoint x="805" y="397" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1plh7kj_di" bpmnElement="Flow_1plh7kj">
-        <di:waypoint x="880" y="397" />
-        <di:waypoint x="982" y="397" />
+        <di:waypoint x="1040" y="397" />
+        <di:waypoint x="1142" y="397" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_00an9vu_di" bpmnElement="Flow_00an9vu">
         <di:waypoint x="188" y="397" />
-        <di:waypoint x="242" y="397" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1urcnen_di" bpmnElement="Flow_1urcnen">
-        <di:waypoint x="278" y="397" />
-        <di:waypoint x="345" y="397" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1la6isk_di" bpmnElement="Flow_1la6isk">
-        <di:waypoint x="395" y="397" />
-        <di:waypoint x="502" y="397" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_08llh4q_di" bpmnElement="Flow_08llh4q">
-        <di:waypoint x="370" y="372" />
-        <di:waypoint x="370" y="250" />
-        <di:waypoint x="422" y="250" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_043c0al_di" bpmnElement="Flow_043c0al">
-        <di:waypoint x="458" y="250" />
-        <di:waypoint x="522" y="250" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_075y69d_di" bpmnElement="Flow_075y69d">
-        <di:waypoint x="695" y="397" />
-        <di:waypoint x="780" y="397" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1thf06h_di" bpmnElement="Flow_1thf06h">
-        <di:waypoint x="670" y="372" />
-        <di:waypoint x="670" y="268" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_10ewvcu_di" bpmnElement="Flow_10ewvcu">
-        <di:waypoint x="670" y="232" />
-        <di:waypoint x="670" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1ebfckq_di" bpmnElement="Flow_1ebfckq">
-        <di:waypoint x="620" y="120" />
-        <di:waypoint x="260" y="120" />
-        <di:waypoint x="260" y="379" />
+        <di:waypoint x="230" y="397" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1">
         <dc:Bounds x="152" y="379" width="36" height="36" />
@@ -137,38 +154,41 @@ print("contador: " + execution.getVariable("contador"))</bpmn:script>
           <dc:Bounds x="157" y="422" width="26" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_0k86irb_di" bpmnElement="Event_EnviaMensagem">
-        <dc:Bounds x="242" y="379" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_1x7vok2_di" bpmnElement="Event_Signal">
-        <dc:Bounds x="502" y="379" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="499" y="422" width="44" height="14" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Gateway_0qcrie2_di" bpmnElement="Gateway_Retorno">
-        <dc:Bounds x="345" y="372" width="50" height="50" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_1nqxy6z_di" bpmnElement="Event_1nqxy6z">
-        <dc:Bounds x="422" y="232" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_1acxdkv_di" bpmnElement="Event_1acxdkv">
-        <dc:Bounds x="522" y="232" width="36" height="36" />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1cqq72i_di" bpmnElement="Event_1cqq72i">
-        <dc:Bounds x="982" y="379" width="36" height="36" />
+        <dc:Bounds x="1142" y="379" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_12dvz31_di" bpmnElement="Activity_1l9yihi">
-        <dc:Bounds x="780" y="357" width="100" height="80" />
+        <dc:Bounds x="940" y="357" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1x7vok2_di" bpmnElement="Event_Signal">
+        <dc:Bounds x="662" y="379" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="654" y="422" width="55" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0k86irb_di" bpmnElement="Event_EnviaMensagem">
+        <dc:Bounds x="402" y="379" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_0qcrie2_di" bpmnElement="Gateway_Retorno">
+        <dc:Bounds x="505" y="372" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1nqxy6z_di" bpmnElement="Event_1nqxy6z">
+        <dc:Bounds x="582" y="232" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1acxdkv_di" bpmnElement="Event_1acxdkv">
+        <dc:Bounds x="682" y="232" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_1wy8pnh_di" bpmnElement="Gateway_1wy8pnh" isMarkerVisible="true">
-        <dc:Bounds x="645" y="372" width="50" height="50" />
+        <dc:Bounds x="805" y="372" width="50" height="50" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_127cs12_di" bpmnElement="Event_TimerRetentativa">
-        <dc:Bounds x="652" y="232" width="36" height="36" />
+        <dc:Bounds x="812" y="232" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_0afuhzc_di" bpmnElement="Activity_0p03psm">
-        <dc:Bounds x="620" y="80" width="100" height="80" />
+        <dc:Bounds x="780" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0jmteyc_di" bpmnElement="Activity_0v8bvy6">
+        <dc:Bounds x="230" y="357" width="100" height="80" />
       </bpmndi:BPMNShape>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

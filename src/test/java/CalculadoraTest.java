@@ -12,9 +12,12 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.*;
 import static org.mockito.Mockito.*;
+
 @Deployment(resources = {"process.bpmn", "subprocesso.bpmn"})
 public class CalculadoraTest {
     public static final String PROCESS_KEY = "primeiro-projeto-camunda-process";
@@ -50,7 +53,14 @@ public class CalculadoraTest {
 
         when(processo.runsCallActivity("Activity_0glriyd")).thenReturn(Scenario.use(subprocesso));
 
-        when(subprocesso.waitsAtMessageIntermediateThrowEvent("Event_EnviaMensagem")).thenReturn(externalTaskDelegate -> externalTaskDelegate.complete(withVariables("oi", "olá")));
+        when(subprocesso.waitsAtMessageIntermediateThrowEvent("Event_EnviaMensagem"))
+                .thenReturn(externalTaskDelegate -> externalTaskDelegate.complete(withVariables("codigo_retorno", "erro_1")))
+                .thenReturn(externalTaskDelegate -> externalTaskDelegate.complete(withVariables("codigo_retorno", "erro_2")))
+                .thenReturn(externalTaskDelegate -> externalTaskDelegate.complete(withVariables("codigo_retorno", "erro_2")))
+                .thenReturn(externalTaskDelegate -> externalTaskDelegate.complete(withVariables("codigo_retorno", "erro_1")))
+                .thenReturn(externalTaskDelegate -> externalTaskDelegate.complete(withVariables("codigo_retorno", "erro_3")))
+                .thenReturn(externalTaskDelegate -> externalTaskDelegate.complete(withVariables("codigo_retorno", "erro_3")))
+                .thenReturn(externalTaskDelegate -> externalTaskDelegate.complete(withVariables("codigo_retorno", "erro_2")));
 
         when(subprocesso.waitsAtEventBasedGateway("Gateway_Retorno")).thenReturn(eventBasedGatewayDelegate -> {
             String processInstanceId = eventBasedGatewayDelegate.getProcessInstance().getRootProcessInstanceId();
@@ -77,13 +87,12 @@ public class CalculadoraTest {
 
         assertThat(l).isEqualTo(3);
 
-        Object oi = historyService().createHistoricVariableInstanceQuery()
-                .variableName("oi")
-                .variableName("oi")
+        Object contagemRetentativas = historyService().createHistoricVariableInstanceQuery()
+                .variableName("contagem_retentativas")
                 .singleResult()
                 .getValue();
 
-        assertThat(oi.toString()).isEqualTo("olá");
+        assertThat(contagemRetentativas).isEqualTo(Map.of("erro_1", 2, "erro_2", 4, "erro_3", 2));
 
         verify(processo, never()).hasCompleted("Activity_1yq1ul7");
     }
